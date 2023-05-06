@@ -23,6 +23,20 @@ enum Shape {
     Scissors,
 }
 
+impl Read<char> for Shape {
+    fn read(c: char) -> Option<Shape> {
+        match c {
+            'A' => Some(Shape::Rock),
+            'B' => Some(Shape::Paper),
+            'C' => Some(Shape::Scissors),
+            _   => {
+                println!("Could not parse {c} to shape.");
+                None
+            }
+        }
+    }
+}
+
 impl Score for Shape {
     fn score(&self) -> u32 {
         match self {
@@ -33,13 +47,25 @@ impl Score for Shape {
     }
 }
 
-
-
 #[derive(Debug,Clone)]
 enum Outcome {
     Lose,
     Draw,
     Win,
+}
+
+impl Read<char> for Outcome {
+    fn read(c: char) -> Option<Outcome> {
+        match c {
+            'X' => Some(Outcome::Lose),
+            'Y' => Some(Outcome::Draw),
+            'Z' => Some(Outcome::Win),
+            _ => {
+                println!("Could not parse {c} to outcome.");
+                None
+            }
+        }
+    }
 }
 
 impl Score for Outcome {
@@ -52,87 +78,59 @@ impl Score for Outcome {
     }
 }
 
-impl Read<char> for Shape {
-    fn read(c: char) -> Option<Shape> {
-        match c {
-            'A' => Some(Shape::Rock),
-            'B' => Some(Shape::Paper),
-            'C' => Some(Shape::Scissors),
-            'X' => Some(Shape::Rock),
-            'Y' => Some(Shape::Paper),
-            'Z' => Some(Shape::Scissors),
-            _   => {
-                println!("Could not parse {c} to shape.");
-                None
-            }
-        }
-    }
-}
-
-impl Score for (Shape, Outcome) {
+impl Score for (Outcome, Shape) {
     fn score(&self) -> u32 {
-        let (shape, outcome) = self;
+        let (outcome, shape) = self;
         shape.score() + outcome.score()
     }
 }
 
-
 #[derive(Debug,Clone)]
-struct Match(Shape,Shape);
+struct Plan(Shape,Outcome);
 
-impl Match {
-    fn play(&self) -> (Shape, Outcome){
-        (
-            self.1.clone(),
-            match self {
-                Match(Shape::Rock, Shape::Rock) => Outcome::Draw,
-                Match(Shape::Paper, Shape::Paper) => Outcome::Draw,
-                Match(Shape::Scissors, Shape::Scissors) => Outcome::Draw,
-                Match(Shape::Rock, Shape::Scissors) => Outcome::Lose,
-                Match(Shape::Scissors, Shape::Paper) => Outcome::Lose,
-                Match(Shape::Paper, Shape::Rock) => Outcome::Lose,
-                _ => Outcome::Win
-            }
-        )
+impl Plan {
+    fn determine_hand(&self) -> Shape {
+        match &self {
+            Plan(Shape::Rock, Outcome::Win) => Shape::Paper,
+            Plan(Shape::Rock, Outcome::Draw) => Shape::Rock,
+            Plan(Shape::Rock, Outcome::Lose) => Shape::Scissors,
+            Plan(Shape::Paper, Outcome::Win) => Shape::Scissors,
+            Plan(Shape::Paper, Outcome::Draw) => Shape::Paper,
+            Plan(Shape::Paper, Outcome::Lose) => Shape::Rock,
+            Plan(Shape::Scissors, Outcome::Win) => Shape::Rock,
+            Plan(Shape::Scissors, Outcome::Draw) => Shape::Scissors,
+            Plan(Shape::Scissors, Outcome::Lose) => Shape::Paper
+        }
     }
 }
 
-impl Read<&str> for Match {
-    // There has to be a better way to do this.
-    // TODO: Revise this.
-    fn read(string: &str) -> Option<Match> {
-        let shapes = string
-            .split_ascii_whitespace()
-            .map(|item| {
-                let chars = item.chars().collect::<Vec<char>>();
-                if let [x] = chars[..] {
-                    Shape::read(x)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<Option<Shape>>>();
-
-        match &shapes[..] {
-            [Some(a), Some(b)] => Some(Match(a.clone(), b.clone())),
-            _ => {
-                println!("Could not parse {string} to match.");
+impl Read<&str> for Plan {
+    fn read(string: &str) -> Option<Plan> {
+        if let [shape, _, outcome] = string
+            .chars()
+            .collect::<Vec<char>>()[..] {
+            if let (Some(shape), Some(outcome)) = (Shape::read(shape), Outcome::read(outcome)) {
+                Some(Plan(shape, outcome))
+            } else {
                 None
             }
+        } else {
+            None
         }
     }
 }
 
 
 #[derive(Debug,Clone)]
-struct Tournament(Vec<Match>);
+struct Tournament(Vec<Plan>);
 
 impl Tournament {
     fn run(&self) -> u32 {
-        self.0
+        let Tournament(plans) = self;
+        plans
             .iter()
-            .map(|m| m.play() )
-            .map(|i| i.score())
+            .map(|p| (p.clone().1, p.determine_hand()) )
+            .map(|i| i.score() )
             .sum()
     }
 }
@@ -141,12 +139,10 @@ impl Read<&str> for Tournament {
     fn read(string: &str) -> Option<Tournament> {
         let matches = string
             .lines()
-            .map(|line| Match::read(&line))
-            .collect::<Vec<Option<Match>>>();
+            .map(|line| Plan::read(&line));
 
-        if matches.iter().all(|line| line.is_some()) {
-            let matches: Vec<Match> = matches
-                .iter()
+        if matches.clone().all(|line| line.is_some()) {
+            let matches: Vec<Plan> = matches
                 .map(|m| m.clone().unwrap())
                 .collect();
             Some(Tournament(matches))

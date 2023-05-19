@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, collections::{ HashMap, HashSet}};
 
 const FILE_PATH: &str = "./inputs/day03";
 
@@ -25,19 +25,40 @@ fn find_misplaced_entry(entries: Vec<usize>) -> usize {
     }
 }
 
+fn find_badge(group: &[Vec<usize>]) -> usize {
+    let mut entries = HashMap::new();
+
+    for mut pack in group.iter().cloned() {
+        pack.sort();
+        pack.dedup();
+        for entry in pack {
+            let count: &mut usize = entries.entry(entry).or_default();
+            *count += 1;
+        }
+    }
+
+    *entries
+        .iter()
+        .filter(|(_, &v)| v == 3)
+        .collect::<Vec<(&usize, &usize)>>()
+        [0].0
+}
+
 fn main() {
     let content = fs::read_to_string(FILE_PATH)
         .expect("File not found");
-    let lines = content.lines()
+    let priorities = content
+        .lines()
         .map(|line| {
              line
              .chars()
              .map(prioritize)
              .collect::<Vec<usize>>()
-        });
+        })
+        .collect::<Vec<_>>();
+    let groups: Vec<_> = priorities.chunks(3).collect();
 
-    let matches: Vec<_> = lines.map(find_misplaced_entry).collect();
-    let answers: usize = matches.iter().sum();
+    let badges: usize = groups.iter().map(|group| find_badge(&group)).sum();
 
-    println!("{answers:#?}");
+    println!("{badges:#?}");
 }

@@ -68,19 +68,15 @@ fn parse_input<'a>(
 }
 
 
-fn handle<T>(instruction: &Instruction, crates: &mut Crates<char>) {
-    let mut n = instruction.quantity.clone();
-    while n > 0{
-        if let Some(x) = crates[instruction.from].pop() {
-            println!(
-                "moving {x} from {} to {}",
-                instruction.from,
-                instruction.to,
-            );
-            crates[instruction.to].push(x)
-        }
-        n -= 1;
-    }
+fn move_crates<T>(instruction: &Instruction, crates: &mut Crates<char>) {
+    let Instruction{quantity, from, to} = instruction;
+    let start_height = crates[*from].len();
+
+    let mut popped: Vec<_> = crates[*from]
+        .drain(start_height - quantity..)
+        .collect();
+
+    crates[*to].append(&mut popped);
 }
 
 
@@ -91,7 +87,7 @@ fn main() {
     let lines: Vec<_> = contents.lines().collect();
     let (mut crates, instructions) = parse_input(&lines);
     for instruction in instructions {
-        handle::<char>(&instruction, &mut crates)
+        move_crates::<char>(&instruction, &mut crates)
     }
 
     let answer: Vec<char> = crates
